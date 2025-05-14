@@ -192,7 +192,7 @@ public final class ATProtoKit: Sendable, ATProtoKitConfiguration, ATRecordConfig
     ///   - urlSessionConfiguration: A `URLSessionConfiguration` object. Optional.
     ///   Defaults to `nil`.
     ///   - responseProvider: An instance of `ATRequestExecutor`. Optional. Defaults to `nil`.
-    ///   - pdsURL: The URL of the Personal Data Server (PDS). Defaults to `https://public.api.bsky.app`.
+    ///   - pdsURL: The URL of the Personal Data Server (PDS). Defaults to `ATProtoKit.publicAPI`.
     ///   - canUseBlueskyRecords: Indicates whether Bluesky's lexicons should be used.
     ///   Defaults to `true`.
     public init(
@@ -236,7 +236,7 @@ public final class ATProtoKit: Sendable, ATProtoKitConfiguration, ATRecordConfig
     ///   - urlSessionConfiguration: A `URLSessionConfiguration` object. Optional.
     ///   Defaults to `nil`.
     ///   - responseProvider: An instance of `ATRequestExecutor`. Optional. Defaults to `nil`.
-    ///   - pdsURL: The URL of the Personal Data Server (PDS). Defaults to `https://public.api.bsky.app`.
+    ///   - pdsURL: The URL of the Personal Data Server (PDS). Defaults to `ATProtoKit.publicAPI`.
     ///   - canUseBlueskyRecords: Indicates whether Bluesky's lexicons should be used.
     ///   Defaults to `true`.
     public init(

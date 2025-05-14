@@ -362,7 +362,7 @@ public class ATProtoTools {
     /// - Parameters:
     ///   - recordURI: The URI of the record.
     ///   - pdsURL: The URL of the Personal Data Server (PDS). Optional.
-    ///   Defaults to `https://public.api.bsky.app`.
+    ///   Defaults to `ATProtoKit.publicAPI`.
     /// - Returns: A strong reference of the record.
     public static func createStrongReference(
         from recordURI: String,
