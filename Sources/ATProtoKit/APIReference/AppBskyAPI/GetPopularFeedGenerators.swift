@@ -26,6 +26,7 @@ extension ATProtoKit {
     ///   - limit: The number of items that can be in the list. Optional. Defaults to `50`.
     ///   - cursor: The mark used to indicate the starting point for the next set
     ///   of result. Optional.
+    ///   - shouldAuthenticate: Indicates whether the method will use the access token when
     /// - Returns: An array of feed generators, with an optional cursor to extend the array.
     ///
     /// - Throws: An ``ATProtoError``-conforming error type, depending on the issue. Go to
@@ -33,17 +34,34 @@ extension ATProtoKit {
     public func getPopularFeedGenerators(
         matching query: String?,
         limit: Int? = 50,
-        cursor: String? = nil
+        cursor: String? = nil,
+        shouldAuthenticate: Bool = true
     ) async throws -> AppBskyLexicon.Unspecced.GetPopularFeedGeneratorsOutput {
-        guard let session = try await self.getUserSession(),
-              let keychain = sessionConfiguration?.keychainProtocol else {
-            throw ATRequestPrepareError.missingActiveSession
+        let authorizationValue = await prepareAuthorizationValue(
+            shouldAuthenticate: shouldAuthenticate
+        )
+
+        guard self.pdsURL != "" else {
+            throw ATRequestPrepareError.emptyPDSURL
         }
+        
+        var requestURL: URL? = nil
+        
+        if let sessionURL = authorizationValue != nil ? try await self.getUserSession()?.serviceEndpoint.absoluteString : self.pdsURL {
+            requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.unspecced.getPopularFeedGenerators")
+        } else {
+            guard let session = try await self.getUserSession(),
+                  let keychain = sessionConfiguration?.keychainProtocol else {
+                throw ATRequestPrepareError.missingActiveSession
+            }
 
-        let accessToken = try await keychain.retrieveAccessToken()
-        let sessionURL = session.serviceEndpoint.absoluteString
+            let accessToken = try await keychain.retrieveAccessToken()
+            let sessionURL = session.serviceEndpoint.absoluteString
 
-        guard let requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.unspecced.getPopularFeedGenerators") else {
+            requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.unspecced.getPopularFeedGenerators")
+        }
+        
+        guard let requestURL = requestURL else {
             throw ATRequestPrepareError.invalidRequestURL
         }
 
@@ -75,7 +93,7 @@ extension ATProtoKit {
                 andMethod: .get,
                 acceptValue: "application/json",
                 contentTypeValue: nil,
-                authorizationValue: "Bearer \(accessToken)"
+                authorizationValue: authorizationValue
             )
             let response = try await APIClientService.shared.sendRequest(
                 request,

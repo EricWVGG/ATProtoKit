@@ -32,6 +32,8 @@ extension ATProtoKit {
     ///   - postFilter: The supported post and/or repost combinations in responses.  Optional.
     ///   Defaults to `.postsWithReplies`.
     ///   - shouldIncludePins: Indicates whether the output includes pinned posts. Optional.
+    ///   - shouldAuthenticate: Indicates whether the method will use the access token when
+    ///   sending the request. Defaults to `true`.
     /// - Returns: An array of feeds created by the specified user account, with an optional cursor
     /// to extend the array.
     ///
@@ -42,17 +44,34 @@ extension ATProtoKit {
         limit: Int? = 50,
         cursor: String? = nil,
         postFilter: AppBskyLexicon.Feed.GetAuthorFeed.Filter? = .postsWithReplies,
-        shouldIncludePins: Bool? = false
+        shouldIncludePins: Bool? = false,
+        shouldAuthenticate: Bool = true
     ) async throws -> AppBskyLexicon.Feed.GetAuthorFeedOutput {
-        guard let session = try await self.getUserSession(),
-              let keychain = sessionConfiguration?.keychainProtocol else {
-            throw ATRequestPrepareError.missingActiveSession
+        let authorizationValue = await prepareAuthorizationValue(
+            shouldAuthenticate: shouldAuthenticate
+        )
+
+        guard self.pdsURL != "" else {
+            throw ATRequestPrepareError.emptyPDSURL
         }
+        
+        var requestURL: URL? = nil
+        
+        if let sessionURL = authorizationValue != nil ? try await self.getUserSession()?.serviceEndpoint.absoluteString : self.pdsURL {
+            requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.feed.getAuthorFeed")
+        } else {
+            guard let session = try await self.getUserSession(),
+                  let keychain = sessionConfiguration?.keychainProtocol else {
+                throw ATRequestPrepareError.missingActiveSession
+            }
 
-        let accessToken = try await keychain.retrieveAccessToken()
-        let sessionURL = session.serviceEndpoint.absoluteString
+            let accessToken = try await keychain.retrieveAccessToken()
+            let sessionURL = session.serviceEndpoint.absoluteString
 
-        guard let requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.feed.getAuthorFeed") else {
+            requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.feed.getAuthorFeed")
+        }
+        
+        guard let requestURL = requestURL else {
             throw ATRequestPrepareError.invalidRequestURL
         }
 
@@ -90,7 +109,7 @@ extension ATProtoKit {
                 andMethod: .get,
                 acceptValue: "application/json",
                 contentTypeValue: nil,
-                authorizationValue: "Bearer \(accessToken)"
+                authorizationValue: authorizationValue
             )
             let response = try await APIClientService.shared.sendRequest(
                 request,

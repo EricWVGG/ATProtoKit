@@ -29,6 +29,8 @@ extension ATProtoKit {
     ///   Can only choose between 1 and 100.
     ///   - cursor: The mark used to indicate the starting point for the next set
     ///   of results. Optional.
+    ///   - shouldAuthenticate: Indicates whether the method will use the access token when
+    ///   sending the request. Defaults to `true`.
     /// - Returns: An array of actors, with an optional cursor to expand the array.
     ///
     /// - Throws: An ``ATProtoError``-conforming error type, depending on the issue. Go to
@@ -36,17 +38,34 @@ extension ATProtoKit {
     public func searchActors(
         matching query: String,
         limit: Int? = 25,
-        cursor: String? = nil
+        cursor: String? = nil,
+        shouldAuthenticate: Bool = true
     ) async throws -> AppBskyLexicon.Actor.SearchActorsOutput {
-        guard let session = try await self.getUserSession(),
-              let keychain = sessionConfiguration?.keychainProtocol else {
-            throw ATRequestPrepareError.missingActiveSession
+        let authorizationValue = await prepareAuthorizationValue(
+            shouldAuthenticate: shouldAuthenticate
+        )
+
+        guard self.pdsURL != "" else {
+            throw ATRequestPrepareError.emptyPDSURL
+        }
+        
+        var requestURL: URL? = nil
+        
+        if let sessionURL = authorizationValue != nil ? try await self.getUserSession()?.serviceEndpoint.absoluteString : self.pdsURL {
+            requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.actor.searchActors")
+        } else {
+            guard let session = try await self.getUserSession(),
+                  let keychain = sessionConfiguration?.keychainProtocol else {
+                throw ATRequestPrepareError.missingActiveSession
+            }
+
+            let accessToken = try await keychain.retrieveAccessToken()
+            let sessionURL = session.serviceEndpoint.absoluteString
+
+            requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.actor.searchActors")
         }
 
-        let accessToken = try await keychain.retrieveAccessToken()
-        let sessionURL = session.serviceEndpoint.absoluteString
-
-        guard let requestURL = URL(string: "\(sessionURL)/xrpc/app.bsky.actor.searchActors") else {
+        guard let requestURL = requestURL else {
             throw ATRequestPrepareError.invalidRequestURL
         }
 
@@ -74,7 +93,7 @@ extension ATProtoKit {
                 forRequest: queryURL,
                 andMethod: .get,
                 acceptValue: "application/json",
-                authorizationValue: "Bearer \(accessToken)"
+                authorizationValue: authorizationValue
             )
             let response = try await APIClientService.shared.sendRequest(
                 request,
